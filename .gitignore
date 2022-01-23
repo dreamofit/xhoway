@@ -1,0 +1,8 @@
+.idea/
+lib/
+xhoway-api/target
+xhoway-core/target
+xhoway-processor/target
+xhoway-provider/target
+xhoway-util/target
+xhoway-web/target

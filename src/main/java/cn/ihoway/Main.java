@@ -45,7 +45,7 @@ public class Main {
         assert listFiles != null;
         for (File f:listFiles){
             if(f.isDirectory()){
-                if(".idea".equals(f.getName()) || "target".equals(f.getName())){
+                if(".idea".equals(f.getName()) || "target".equals(f.getName()) || ".git".equals(f.getName())){
                     continue;
                 }else{
                     readDir(f,goalPath,name);

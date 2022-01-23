@@ -17,7 +17,7 @@ public class HowayLog {
         FileInputStream fileInputStream = null;
         try {
             Properties properties = new Properties();
-            fileInputStream = new FileInputStream("C:/github/howaysso/howaysso-util/src/main/resources/log4j.properties");
+            fileInputStream = new FileInputStream("C:/github/xhoway/xhoway-util/src/main/resources/log4j.properties");
             properties.load(fileInputStream);
             PropertyConfigurator.configure(properties);
         } catch (Exception e) {

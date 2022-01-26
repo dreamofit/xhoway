@@ -1,5 +1,6 @@
 .idea/
 lib/
+target/
 xhoway-api/target
 xhoway-core/target
 xhoway-processor/target

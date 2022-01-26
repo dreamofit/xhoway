@@ -12,15 +12,29 @@ public class Main {
         String goalPath = path.substring(0,path.lastIndexOf("\\"));
         System.out.println(goalPath);
         Scanner in = new Scanner(System.in);
-        System.out.print("输入程序名:");
+        System.out.print("输入项目名（默认untitled）:");
         String name = in.nextLine();
+        if("".equals(name)){
+            name = "untitled";
+        }
+        System.out.print("输入域（默认org）：");
+        String field = in.nextLine();
+        if("".equals(field)){
+            field = "org";
+        }
+        System.out.print("输入公司名称（默认example）：");
+        String company = in.nextLine();
+        if("".equals(company)){
+            company = "example";
+        }
+        System.out.print("name:"+name+" filed:"+field+" company:"+company);
         String goalDir = goalPath + "\\" + name;
         File newDir = new File(goalDir);
         if(newDir.exists()){
             System.out.println("程序已存在！");
         }else {
             dir = new File(path);
-            Main.readDir(dir,goalPath,name);
+            Main.readDir(dir,goalPath,name,field,company);
         }
     }
 
@@ -30,11 +44,15 @@ public class Main {
      * @param goalDir 目标copy地址
      * @param name 程序名
      */
-    private static void readDir(File dir,String goalDir,String name){
+    private static void readDir(File dir,String goalDir,String name,String filed,String company){
         String goalPath;
         if(dir.getName().contains("xhoway")){
             goalPath = goalDir + "\\" + dir.getName().replaceAll("xhoway",name);
-        }else {
+        }else if("cn".equals(dir.getName())){
+            goalPath = goalDir + "\\" + filed;
+        }else if("ihoway".equals(dir.getName())){
+            goalPath = goalDir + "\\" + company;
+        } else {
             goalPath = goalDir + "\\" + dir.getName();
         }
         File goalFile = new File(goalPath);
@@ -48,17 +66,17 @@ public class Main {
                 if(".idea".equals(f.getName()) || "target".equals(f.getName()) || ".git".equals(f.getName())){
                     continue;
                 }else{
-                    readDir(f,goalPath,name);
+                    readDir(f,goalPath,name,filed,company);
                 }
             }else {
                 if(!"Main.java".equals(f.getName())){
-                    readFile(f,goalPath+"\\"+f.getName(),name);
+                    readFile(f,goalPath+"\\"+f.getName(),name,filed+"."+company);
                 }
             }
         }
     }
 
-    private static void readFile(File file,String goalDir,String name){
+    private static void readFile(File file,String goalDir,String name,String groupId){
         try {
             //创建一个输入流对象
             InputStream is = new FileInputStream(file.getAbsolutePath());
@@ -74,6 +92,7 @@ public class Main {
                 //把数据转换为字符串
                 str = new String(bytes, 0, len);
                 str = str.replaceAll("xhoway",name);
+                str = str.replaceAll("cn.ihoway",groupId);
                 out.write(str.getBytes(StandardCharsets.UTF_8));
                 //继续进行读取
                 len = is.read(bytes);

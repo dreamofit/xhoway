@@ -1,4 +1,4 @@
-package cn.ihoway;
+package cn.xihoway;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -27,7 +27,7 @@ public class Main {
         if("".equals(company)){
             company = "example";
         }
-        System.out.print("name:"+name+" filed:"+field+" company:"+company);
+        //System.out.print("name:"+name+" filed:"+field+" company:"+company);
         String goalDir = goalPath + "\\" + name;
         File newDir = new File(goalDir);
         if(newDir.exists()){
@@ -36,6 +36,7 @@ public class Main {
             dir = new File(path);
             Main.readDir(dir,goalPath,name,field,company);
         }
+        System.out.println("SUCCESS");
     }
 
     /**
@@ -50,7 +51,7 @@ public class Main {
             goalPath = goalDir + "\\" + dir.getName().replaceAll("xhoway",name);
         }else if("cn".equals(dir.getName())){
             goalPath = goalDir + "\\" + filed;
-        }else if("ihoway".equals(dir.getName())){
+        }else if("xihoway".equals(dir.getName())){
             goalPath = goalDir + "\\" + company;
         } else {
             goalPath = goalDir + "\\" + dir.getName();
@@ -87,12 +88,12 @@ public class Main {
             int len = 0;
             len = is.read(bytes);
             //System.out.println("字节数:"+len);
-            String str = null;
+            String str;
             while(len!=-1){
                 //把数据转换为字符串
                 str = new String(bytes, 0, len);
                 str = str.replaceAll("xhoway",name);
-                str = str.replaceAll("cn.ihoway",groupId);
+                str = str.replaceAll("cn.xihoway",groupId);
                 out.write(str.getBytes(StandardCharsets.UTF_8));
                 //继续进行读取
                 len = is.read(bytes);

@@ -1,4 +1,4 @@
-package cn.ihoway.util;
+package cn.xihoway.util;
 
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;

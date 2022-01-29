@@ -1,4 +1,4 @@
-package cn.ihoway;
+package cn.xihoway;
 
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -12,7 +12,7 @@ public class DubboServerInit {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("dubbo/provider.xml");
         //System.out.println(context.getDisplayName() + ": here");
         context.start();
-        System.out.println("*** howaysso服务已经启动 ***");
+        System.out.println("*** xhoway服务已经启动 ***");
         System.in.read();
     }
 }

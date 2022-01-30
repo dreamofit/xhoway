@@ -3,6 +3,7 @@ package cn.xihoway.common;
 
 
 import cn.ihoway.api.record.RecordAsm;
+import cn.ihoway.api.security.TokenAsm;
 import cn.xihoway.annotation.Processor;
 import cn.xihoway.common.io.CommonInput;
 import cn.xihoway.common.io.CommonOutput;
@@ -41,11 +42,19 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
     /**
      * 安全认证
      * @param input input
-     * @return StatusCode
+     * @return HowayResult
      */
-    protected StatusCode certification(I input, AuthorityLevel limitAuthority) {
+    protected HowayResult certification(I input,O output, AuthorityLevel limitAuthority) {
         //return accessToken.isToekenRule(input.token,limitAuthority);
-        return StatusCode.SUCCESS;
+        TokenAsm tokenAsm = (TokenAsm) HowayContainer.getContext().getBean("TokenAsm");
+        HashMap<String,Object> res = tokenAsm.isTokenRule(input.token,limitAuthority.getLevel());
+        if((Integer)res.get("code") == 200){
+            return HowayResult.createSuccessResult(output);
+        }else {
+            logger.error("token:" + input.token + "失败：" + res.get("msg"));
+            return HowayResult.createFailResult(StatusCode.TOKENERROR,res.get("msg").toString(),output);
+        }
+
     }
 
     /**
@@ -100,9 +109,9 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
                 return HowayResult.createFailResult(sc,"数据检查失败",output);
             }
             if(annotation.certification()){
-                sc = certification(input,annotation.limitAuthority());
-                if( sc.getCode() != StatusCode.SUCCESS.getCode() ){
-                    return HowayResult.createFailResult(sc,"安全认证失败",output);
+                HowayResult cerRes = certification(input,output,annotation.limitAuthority());
+                if(!cerRes.isOk()){
+                    return cerRes;
                 }
             }
             HowayResult response = beforeProcess(input,output);

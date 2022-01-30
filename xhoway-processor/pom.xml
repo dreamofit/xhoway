@@ -16,6 +16,16 @@
             <artifactId>xhoway-util</artifactId>
             <version>1.0.0</version>
         </dependency>
+        <dependency>
+            <groupId>cn.ihoway</groupId>
+            <artifactId>HowayRecord-api</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.ihoway</groupId>
+            <artifactId>howaysso-api</artifactId>
+            <version>1.0.0</version>
+        </dependency>
     </dependencies>
 
     <properties>

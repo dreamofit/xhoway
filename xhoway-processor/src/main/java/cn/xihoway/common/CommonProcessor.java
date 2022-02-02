@@ -10,15 +10,18 @@ import cn.xihoway.common.io.CommonOutput;
 import cn.xihoway.container.HowayContainer;
 import cn.xihoway.type.AuthorityLevel;
 import cn.xihoway.type.StatusCode;
+import cn.xihoway.util.HowayEncrypt;
 import cn.xihoway.util.HowayLog;
 import cn.xihoway.util.HowayResult;
 import com.alibaba.fastjson.JSON;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.MDC;
 
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.UUID;
 
 /**
  * 程序处理器公共类，所有逻辑处理器必须继承该类
@@ -28,8 +31,7 @@ import java.util.HashMap;
 public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutput> {
 
     private final HowayLog logger = new HowayLog(CommonProcessor.class);
-    protected static final String APP_KEY = "5582";
-    protected static final String APP_SECRET = "d1497b84";
+
     /**
      * 数据检查
      * @param input input
@@ -45,9 +47,7 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
      * @return HowayResult
      */
     protected HowayResult certification(I input,O output, AuthorityLevel limitAuthority) {
-        //return accessToken.isToekenRule(input.token,limitAuthority);
-        TokenAsm tokenAsm = (TokenAsm) HowayContainer.getContext().getBean("TokenAsm");
-        HashMap<String,Object> res = tokenAsm.isTokenRule(input.token,limitAuthority.getLevel());
+        HashMap<String, Object> res = getIsTokenRule(input, limitAuthority);
         if((Integer)res.get("code") == 200){
             return HowayResult.createSuccessResult(output);
         }else {
@@ -55,6 +55,12 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
             return HowayResult.createFailResult(StatusCode.TOKENERROR,res.get("msg").toString(),output);
         }
 
+    }
+
+    protected HashMap<String, Object> getIsTokenRule(I input, AuthorityLevel limitAuthority) {
+        TokenAsm tokenAsm = (TokenAsm) HowayContainer.getContext().getBean("TokenAsm");
+        HashMap<String,Object> res = tokenAsm.isTokenRule(input.token, limitAuthority.getLevel());
+        return res;
     }
 
     /**
@@ -86,6 +92,10 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
     }
 
     public HowayResult doExcute(I input,O output){
+        if(StringUtils.isNotBlank(input.traceId)){
+            MDC.put("traceId",input.traceId);
+        }
+
         if(StringUtils.isBlank(input.eventNo)){
             logger.info("事件编号不能为空!");
             return HowayResult.createFailResult(StatusCode.FIELDMISSING,"事件编号不能为空!",output);
@@ -96,7 +106,6 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
         }
         response = getResponse(input,output);
         updateRecord(input,response); //记录output日志
-        logger.info("end --> response: "+ JSON.toJSONString(response));
         return response;
     }
 
@@ -187,9 +196,23 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
 
     }
 
-    private String getCurrentTime(Date date){
+    protected String getCurrentTime(Date date){
         SimpleDateFormat dateFormat= new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         return dateFormat.format(date);
     }
 
+    protected HashMap<String, Object> getUserByToken(String token){
+        TokenAsm tokenAsm = (TokenAsm) HowayContainer.getContext().getBean("TokenAsm");
+        return tokenAsm.getUserByToken(token);
+    }
+
+    /**
+     * 获取事件编号
+     * @return eventNo
+     */
+    protected String getEventNo(){
+        return HowayEncrypt.encrypt(UUID.randomUUID().toString(),"MD5",12);
+    }
+
 }
+

@@ -87,11 +87,11 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
      * @param output output
      * @return HowayResult
      */
-    protected HowayResult afterPrcocess(I input,O output){
+    protected HowayResult afterProcess(I input, O output){
         return HowayResult.createSuccessResult(output);
     }
 
-    public HowayResult doExcute(I input,O output){
+    public HowayResult doExecute(I input, O output){
         if(StringUtils.isNotBlank(input.traceId)){
             MDC.put("traceId",input.traceId);
         }
@@ -100,12 +100,13 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
             logger.info("事件编号不能为空!");
             return HowayResult.createFailResult(StatusCode.FIELDMISSING,"事件编号不能为空!",output);
         }
-        HowayResult response = inserRecord(input,output); //记录input日志
+        HashMap<String,String> addInput = new HashMap<>();
+        HowayResult response = insertRecord(input,output,addInput); //记录input日志
         if(response.getStatusCode() == StatusCode.DUPLICATREQUEST){
             return response;
         }
         response = getResponse(input,output);
-        updateRecord(input,response); //记录output日志
+        updateRecord(input,response,addInput); //记录output日志
         return response;
     }
 
@@ -131,14 +132,14 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
             if(!response.isOk()){
                 return response;
             }
-            response = afterPrcocess(input,output);
+            response = afterProcess(input,output);
             if(!response.isOk()){
                 return response;
             }
             logger.info("end --> response: "+ JSON.toJSONString(response));
             return response;
         }catch (Exception e){
-            logger.error(Arrays.toString(e.getStackTrace()));
+            logger.error("[error] processor has an exception :"+Arrays.toString(e.getStackTrace()));
             return HowayResult.createFailResult(StatusCode.JAVAEXCEPTION,output);
         }
     }
@@ -149,7 +150,7 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
      * @param output
      * @return
      */
-    private HowayResult inserRecord(I input,O output){
+    private HowayResult insertRecord(I input,O output,HashMap<String,String> addInput){
         try{
             RecordAsm recordAsm = (RecordAsm) HowayContainer.getContext().getBean("RecordAsm");
             HashMap<String,Object> res = recordAsm.findByEventNo(input.eventNo);
@@ -158,7 +159,6 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
                 String resOutput = (String) res.get("output");
                 return HowayResult.createFailResult(StatusCode.DUPLICATREQUEST,"请求重复!",StringUtils.isBlank(resOutput)?output:JSON.parse(resOutput));
             }
-            HashMap<String,String> addInput = new HashMap<>();
             addInput.put("eventNo",input.eventNo);
             addInput.put("input",JSON.toJSONString(input));
             addInput.put("inputToken",input.token);
@@ -166,10 +166,11 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
             Date date = new Date(timeStamp);
             addInput.put("inputTime",getCurrentTime(date));
             addInput.put("inputTimestamp",String.valueOf(timeStamp));
-            addInput.put("sysName","howaysso");
+            addInput.put("sysName","forum");
             addInput.put("ip",input.ip);
             addInput.put("method",input.method);
-            recordAsm.addRecor(addInput);
+            addInput.put("traceId", (String) MDC.get("traceId"));
+
         }catch (Exception e){
             logger.error("[warning] input日志写入失败，cause by :" + e.getCause());
             logger.error(Arrays.toString(e.getStackTrace()));
@@ -177,18 +178,17 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
         return HowayResult.createSuccessResult(output);
     }
 
-    private void updateRecord(I input,HowayResult response){
+    private void updateRecord(I input,HowayResult response,HashMap<String,String> addInput){
         try {
             RecordAsm recordAsm = (RecordAsm) HowayContainer.getContext().getBean("RecordAsm");
-            HashMap<String,String> updateInput = new HashMap<>();
-            updateInput.put("eventNo",input.eventNo);
-            updateInput.put("output",JSON.toJSONString(response));
+            addInput.put("eventNo",input.eventNo);
+            addInput.put("output",JSON.toJSONString(response));
             long timeStamp = System.currentTimeMillis();
             Date date = new Date(timeStamp);
-            updateInput.put("outputTime",getCurrentTime(date));
-            updateInput.put("outputTimestamp",String.valueOf(timeStamp));
-            updateInput.put("responseCode",String.valueOf(response.getStatusCode().getCode()));
-            recordAsm.updateRecord(updateInput);
+            addInput.put("outputTime",getCurrentTime(date));
+            addInput.put("outputTimestamp",String.valueOf(timeStamp));
+            addInput.put("responseCode",String.valueOf(response.getStatusCode().getCode()));
+            recordAsm.addRecor(addInput);
         }catch (Exception e){
             logger.error("[warning] output日志写入失败，cause by :" + e.getCause());
             logger.error(Arrays.toString(e.getStackTrace()));
@@ -213,6 +213,5 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
     protected String getEventNo(){
         return HowayEncrypt.encrypt(UUID.randomUUID().toString(),"MD5",12);
     }
-
 }
 

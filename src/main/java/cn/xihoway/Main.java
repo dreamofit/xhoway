@@ -71,7 +71,7 @@ public class Main {
                 }
             }else {
                 if(!"Main.java".equals(f.getName())){
-                    readFile(f,goalPath+"\\"+f.getName(),name,filed+"."+company);
+                    readFile(f,goalPath+"\\"+f.getName().replaceAll("xhoway",name),name,filed+"."+company);
                 }
             }
         }

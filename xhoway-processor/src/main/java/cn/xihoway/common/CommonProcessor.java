@@ -4,12 +4,16 @@ package cn.xihoway.common;
 
 import cn.ihoway.api.record.RecordAsm;
 import cn.ihoway.api.security.TokenAsm;
+import cn.ihoway.api.user.UserAsm;
+import cn.xihoway.annotation.InputCheck;
+import cn.xihoway.annotation.InsideCheck;
 import cn.xihoway.annotation.Processor;
 import cn.xihoway.common.io.CommonInput;
 import cn.xihoway.common.io.CommonOutput;
 import cn.xihoway.container.HowayContainer;
 import cn.xihoway.type.AuthorityLevel;
 import cn.xihoway.type.StatusCode;
+import cn.xihoway.util.HowayConfigReader;
 import cn.xihoway.util.HowayEncrypt;
 import cn.xihoway.util.HowayLog;
 import cn.xihoway.util.HowayResult;
@@ -17,6 +21,7 @@ import com.alibaba.fastjson.JSON;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.MDC;
 
+import java.lang.reflect.Field;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -88,16 +93,19 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
      * @return HowayResult
      */
     protected HowayResult afterProcess(I input, O output){
+        TokenAsm tokenAsm = (TokenAsm) HowayContainer.getContext().getBean("TokenAsm");
+        output.token = tokenAsm.getToken(input.token, HowayConfigReader.getConfig("xhoway.properties","app.key"),HowayConfigReader.getConfig("xhoway.properties","app.secret"));
+        logger.info("token:"+output.token);
         return HowayResult.createSuccessResult(output);
     }
 
     public HowayResult doExecute(I input, O output){
         if(StringUtils.isNotBlank(input.traceId)){
             MDC.put("traceId",input.traceId);
+        }else{
+            input.traceId = (String) MDC.get("traceId");
         }
-
         if(StringUtils.isBlank(input.eventNo)){
-            logger.info("事件编号不能为空!");
             return HowayResult.createFailResult(StatusCode.FIELDMISSING,"事件编号不能为空!",output);
         }
         HashMap<String,String> addInput = new HashMap<>();
@@ -105,8 +113,16 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
         if(response.getStatusCode() == StatusCode.DUPLICATREQUEST){
             return response;
         }
+        response = inputCheck(input,output);
+        if(!response.isOk()){
+            return response;
+        }
         response = getResponse(input,output);
-        updateRecord(input,response,addInput); //记录output日志
+        HowayResult newRes = response;
+        Thread thread = new Thread(() -> {
+            updateRecord(input,newRes,addInput); //记录output日志
+        });
+        thread.start();
         return response;
     }
 
@@ -136,6 +152,7 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
             if(!response.isOk()){
                 return response;
             }
+
             logger.info("end --> response: "+ JSON.toJSONString(response));
             return response;
         }catch (Exception e){
@@ -155,9 +172,7 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
             RecordAsm recordAsm = (RecordAsm) HowayContainer.getContext().getBean("RecordAsm");
             HashMap<String,Object> res = recordAsm.findByEventNo(input.eventNo);
             if(res != null){
-                logger.info("请求重复！eventNo:" + input.eventNo);
-                String resOutput = (String) res.get("output");
-                return HowayResult.createFailResult(StatusCode.DUPLICATREQUEST,"请求重复!",StringUtils.isBlank(resOutput)?output:JSON.parse(resOutput));
+                return HowayResult.createFailResult(StatusCode.DUPLICATREQUEST,"请求重复!",output);
             }
             addInput.put("eventNo",input.eventNo);
             addInput.put("input",JSON.toJSONString(input));
@@ -168,8 +183,8 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
             addInput.put("inputTimestamp",String.valueOf(timeStamp));
             addInput.put("sysName","forum");
             addInput.put("ip",input.ip);
-            addInput.put("method",input.method);
-            addInput.put("traceId", (String) MDC.get("traceId"));
+            addInput.put("method",input.method.toString());
+            addInput.put("traceId", input.traceId);
 
         }catch (Exception e){
             logger.error("[warning] input日志写入失败，cause by :" + e.getCause());
@@ -206,6 +221,11 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
         return tokenAsm.getUserByToken(token);
     }
 
+    protected HashMap<String, Object> getUserById(Integer id,I input){
+        UserAsm userAsm = (UserAsm) HowayContainer.getContext().getBean("UserAsm");
+        return userAsm.getUserById(id,input.eventNo,input.traceId);
+    }
+
     /**
      * 获取事件编号
      * @return eventNo
@@ -213,5 +233,79 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
     protected String getEventNo(){
         return HowayEncrypt.encrypt(UUID.randomUUID().toString(),"MD5",12);
     }
+
+    /**
+     * 检查输入类
+     * @param o obj
+     * @param output output
+     * @return HowayResult
+     */
+    private HowayResult inputCheck(Object o,O output) {
+        Class<?> clz = o.getClass();
+        InputCheck inputCheck = (InputCheck) clz.getAnnotation(InputCheck.class);
+        if (inputCheck != null && inputCheck.check()) {
+            //获取类中的属性
+            Field[] fileds = clz.getFields();
+            for (Field field : fileds) {
+                try {
+                    //获取该属性的值
+                    Object obj = field.get(o);
+                    //获取属性中的注解
+                    InsideCheck insideCheck = field.getAnnotation(InsideCheck.class);
+                    if (insideCheck != null) {
+                        //必输注解
+                        if (insideCheck.mustInput() && (obj == null || StringUtils.isBlank(obj.toString()))) {
+                            logger.info(field.getName() + "必输！");
+                            return HowayResult.createFailResult(StatusCode.FIELDMISSING, field.getName() + "必输！", output);
+                        }
+                        //长度限制注解
+                        if (insideCheck.maxLen() > 0 && obj != null && obj.toString().length() > insideCheck.maxLen()) {
+                            logger.info(field.getName() + "长度超出限制" + insideCheck.maxLen() + " ! len : " + obj.toString().length());
+                            return HowayResult.createFailResult(StatusCode.ILLEGALPARAMETER, field.getName() + "长度超出限制!" + insideCheck.maxLen(), output);
+                        }
+                        //最小值
+                        if (obj != null && insideCheck.minValue() != Integer.MAX_VALUE && Integer.parseInt(obj.toString()) < insideCheck.minValue()) {
+                            logger.info(field.getName() + "最小值为" + insideCheck.minValue());
+                            return HowayResult.createFailResult(StatusCode.ILLEGALPARAMETER, field.getName() + "最小值为" + insideCheck.minValue(), output);
+                        }
+                        //最大值
+                        if (obj != null && insideCheck.maxValue() != Integer.MIN_VALUE && Integer.parseInt(obj.toString()) > insideCheck.maxValue()) {
+                            logger.info(field.getName() + "最大值为" + insideCheck.maxValue());
+                            return HowayResult.createFailResult(StatusCode.ILLEGALPARAMETER, field.getName() + "最大值为" + insideCheck.maxValue(), output);
+                        }
+                        //取值范围
+                        if (obj != null && !"".equals(insideCheck.ranges())) {
+                            String[] ranges = insideCheck.ranges().split(",");
+                            boolean inRange = false;
+                            for (String range : ranges) {
+                                if (range.equals(obj.toString())) {
+                                    inRange = true;
+                                    break;
+                                }
+                            }
+                            if (!inRange) {
+                                logger.info(field.getName() + "不在取值范围内：[" + insideCheck.ranges() + "]");
+                                return HowayResult.createFailResult(StatusCode.ILLEGALPARAMETER, field.getName() + "不在取值范围内：[" + insideCheck.ranges() + "]", output);
+                            }
+                        }
+                        //todo 格式限制注解
+                        //todo 其他注解
+                    }
+                    if (obj == null) {
+                        continue;
+                    }
+                    HowayResult res = inputCheck(obj, output);
+                    if (!res.isOk()) {
+                        return res;
+                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return HowayResult.createSuccessResult(output);
+    }
+
 }
 

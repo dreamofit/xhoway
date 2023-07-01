@@ -10,7 +10,7 @@ import cn.xihoway.annotation.InsideCheck;
 import cn.xihoway.annotation.Processor;
 import cn.xihoway.common.io.CommonInput;
 import cn.xihoway.common.io.CommonOutput;
-import cn.xihoway.container.HowayContainer;
+import cn.xihoway.util.HowayConsumerContainer;
 import cn.xihoway.type.AuthorityLevel;
 import cn.xihoway.type.StatusCode;
 import cn.xihoway.util.HowayConfigReader;
@@ -63,7 +63,7 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
     }
 
     protected HashMap<String, Object> getIsTokenRule(I input, AuthorityLevel limitAuthority) {
-        TokenAsm tokenAsm = (TokenAsm) HowayContainer.getContext().getBean("TokenAsm");
+        TokenAsm tokenAsm = (TokenAsm) HowayConsumerContainer.getContext().getBean("TokenAsm");
         HashMap<String,Object> res = tokenAsm.isTokenRule(input.token, limitAuthority.getLevel());
         return res;
     }
@@ -93,7 +93,7 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
      * @return HowayResult
      */
     protected HowayResult afterProcess(I input, O output){
-        TokenAsm tokenAsm = (TokenAsm) HowayContainer.getContext().getBean("TokenAsm");
+        TokenAsm tokenAsm = (TokenAsm) HowayConsumerContainer.getContext().getBean("TokenAsm");
         output.token = tokenAsm.getToken(input.token, HowayConfigReader.getConfig("xhoway.properties","app.key"),HowayConfigReader.getConfig("xhoway.properties","app.secret"));
         logger.info("token:"+output.token);
         return HowayResult.createSuccessResult(output);
@@ -169,7 +169,7 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
      */
     private HowayResult insertRecord(I input,O output,HashMap<String,String> addInput){
         try{
-            RecordAsm recordAsm = (RecordAsm) HowayContainer.getContext().getBean("RecordAsm");
+            RecordAsm recordAsm = (RecordAsm) HowayConsumerContainer.getContext().getBean("RecordAsm");
             HashMap<String,Object> res = recordAsm.findByEventNo(input.eventNo);
             if(res != null){
                 return HowayResult.createFailResult(StatusCode.DUPLICATREQUEST,"请求重复!",output);
@@ -195,7 +195,7 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
 
     private void updateRecord(I input,HowayResult response,HashMap<String,String> addInput){
         try {
-            RecordAsm recordAsm = (RecordAsm) HowayContainer.getContext().getBean("RecordAsm");
+            RecordAsm recordAsm = (RecordAsm) HowayConsumerContainer.getContext().getBean("RecordAsm");
             addInput.put("eventNo",input.eventNo);
             addInput.put("output",JSON.toJSONString(response));
             long timeStamp = System.currentTimeMillis();
@@ -217,12 +217,12 @@ public abstract class CommonProcessor<I extends CommonInput,O extends CommonOutp
     }
 
     protected HashMap<String, Object> getUserByToken(String token){
-        TokenAsm tokenAsm = (TokenAsm) HowayContainer.getContext().getBean("TokenAsm");
+        TokenAsm tokenAsm = (TokenAsm) HowayConsumerContainer.getContext().getBean("TokenAsm");
         return tokenAsm.getUserByToken(token);
     }
 
     protected HashMap<String, Object> getUserById(Integer id,I input){
-        UserAsm userAsm = (UserAsm) HowayContainer.getContext().getBean("UserAsm");
+        UserAsm userAsm = (UserAsm) HowayConsumerContainer.getContext().getBean("UserAsm");
         return userAsm.getUserById(id,input.eventNo,input.traceId);
     }
 

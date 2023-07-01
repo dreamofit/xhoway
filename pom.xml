@@ -16,8 +16,7 @@
         <module>xhoway-api</module>
         <module>xhoway-core</module>
         <module>xhoway-processor</module>
-        <module>xhoway-provider</module>
-        <module>xhoway-web</module>
+        <module>xhoway-access</module>
         <module>xhoway-util</module>
     </modules>
 

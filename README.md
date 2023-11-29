@@ -20,4 +20,8 @@
     SERVICE_ADDR 应用所在主机ip地址
     MYSQL_PASS mysql中root用户密码
 
+## todo
+    将命令行输入改为UI输入，并设置可选配置，如：DUBBO、MYSQKL、REDIS等等
+    
+
 
